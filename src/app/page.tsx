@@ -6,6 +6,7 @@ export default function Home() {
     const [images, setImages] = useState<string[]>([]);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [isFullScreen, setIsFullScreen] = useState(false);
+    const [isDownloadingAll, setIsDownloadingAll] = useState(false);
 
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -25,12 +26,11 @@ export default function Home() {
             ...newImages,
         ]);
 
-        // Automatically select the first newly uploaded image
         if (!selectedImage) {
             setSelectedImage(newImages[0]);
         }
 
-        // Allow selecting the same file again
+        // Allow selecting the same files again
         event.target.value = "";
     }
 
@@ -42,7 +42,6 @@ export default function Home() {
                 (image) => image !== imageToRemove
             );
 
-            // If we're removing the currently selected image
             if (selectedImage === imageToRemove) {
                 setSelectedImage(
                     remainingImages.length > 0
@@ -59,10 +58,13 @@ export default function Home() {
         }
     }
 
-    function downloadImage() {
+    function downloadImage(
+        imageUrl: string,
+        filename: string
+    ) {
         const canvas = canvasRef.current;
 
-        if (!canvas || !selectedImage) return;
+        if (!canvas) return;
 
         const image = new Image();
 
@@ -74,6 +76,13 @@ export default function Home() {
             canvas.width = image.naturalWidth;
             canvas.height = image.naturalHeight;
 
+            context.clearRect(
+                0,
+                0,
+                canvas.width,
+                canvas.height
+            );
+
             context.drawImage(
                 image,
                 0,
@@ -82,15 +91,63 @@ export default function Home() {
                 image.naturalHeight
             );
 
-            const link = document.createElement("a");
+            canvas.toBlob((blob) => {
+                if (!blob) return;
 
-            link.download = "devfest-photo.png";
-            link.href = canvas.toDataURL("image/png");
+                const downloadUrl =
+                    URL.createObjectURL(blob);
 
-            link.click();
+                const link =
+                    document.createElement("a");
+
+                link.href = downloadUrl;
+                link.download = filename;
+
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                URL.revokeObjectURL(downloadUrl);
+            }, "image/png");
         };
 
-        image.src = selectedImage;
+        image.src = imageUrl;
+    }
+
+    function downloadSelectedImage() {
+        if (!selectedImage) return;
+
+        const index = images.indexOf(selectedImage);
+
+        downloadImage(
+            selectedImage,
+            `devfest-photo-${index + 1}.png`
+        );
+    }
+
+    async function downloadAllImages() {
+        if (images.length === 0) return;
+
+        setIsDownloadingAll(true);
+
+        /*
+         * Download each image separately.
+         *
+         * A small delay helps prevent the browser from
+         * blocking multiple downloads at once.
+         */
+        for (let i = 0; i < images.length; i++) {
+            downloadImage(
+                images[i],
+                `devfest-photo-${i + 1}.png`
+            );
+
+            await new Promise((resolve) =>
+                setTimeout(resolve, 500)
+            );
+        }
+
+        setIsDownloadingAll(false);
     }
 
     // Close full-screen viewer with Escape
@@ -101,7 +158,10 @@ export default function Home() {
             }
         }
 
-        document.addEventListener("keydown", handleEscape);
+        document.addEventListener(
+            "keydown",
+            handleEscape
+        );
 
         return () => {
             document.removeEventListener(
@@ -111,7 +171,7 @@ export default function Home() {
         };
     }, []);
 
-    // Clean up object URLs when component is unmounted
+    // Clean up object URLs when component unmounts
     useEffect(() => {
         return () => {
             images.forEach((image) => {
@@ -125,15 +185,18 @@ export default function Home() {
 
             {/* Background decoration */}
             <div className="pointer-events-none fixed inset-0 overflow-hidden">
+
                 <div className="absolute -left-40 -top-40 h-96 w-96 rounded-full bg-green-500/10 blur-3xl" />
 
                 <div className="absolute -right-40 top-1/3 h-96 w-96 rounded-full bg-emerald-400/10 blur-3xl" />
+
             </div>
 
             {/* Header */}
             <header className="relative z-10 flex items-center justify-between px-6 py-5 sm:px-10">
 
                 <div>
+
                     <p className="text-sm font-semibold tracking-[0.3em] text-green-400">
                         DEVFEST
                     </p>
@@ -141,6 +204,7 @@ export default function Home() {
                     <h1 className="text-xl font-bold tracking-tight">
                         Nairobi 2026
                     </h1>
+
                 </div>
 
                 <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-zinc-300 backdrop-blur">
@@ -206,7 +270,7 @@ export default function Home() {
 
                                         </div>
 
-                                        {/* Full screen button */}
+                                        {/* Full screen */}
                                         <button
                                             onClick={() =>
                                                 setIsFullScreen(true)
@@ -224,7 +288,7 @@ export default function Home() {
 
                                     </div>
 
-                                    {/* Change/add images */}
+                                    {/* Add more */}
                                     <label
                                         htmlFor="add-more-images"
                                         className="mt-5 cursor-pointer text-sm font-medium text-zinc-400 transition hover:text-green-400"
@@ -302,8 +366,9 @@ export default function Home() {
                                     needs to be uploaded to create your images.
                                 </p>
 
-                                {/* Gallery count */}
+                                {/* Photo count */}
                                 {images.length > 0 && (
+
                                     <div className="mt-5 flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
 
                     <span className="text-sm text-zinc-400">
@@ -315,10 +380,12 @@ export default function Home() {
                     </span>
 
                                     </div>
+
                                 )}
 
                                 {/* Controls */}
                                 {selectedImage && (
+
                                     <div className="mt-5 space-y-4">
 
                                         {/* Zoom */}
@@ -369,39 +436,45 @@ export default function Home() {
                                         </div>
 
                                     </div>
+
                                 )}
 
                             </div>
 
-                            {/* Download */}
+                            {/* Selected download */}
                             {selectedImage && (
+
                                 <div className="mt-8">
 
                                     <button
-                                        onClick={downloadImage}
+                                        onClick={downloadSelectedImage}
                                         className="w-full rounded-xl bg-green-400 px-6 py-4 font-bold text-black shadow-lg shadow-green-400/10 transition hover:bg-green-300 hover:shadow-green-400/20 active:scale-[0.98]"
                                     >
                                         Download PNG
                                     </button>
 
                                     <p className="mt-3 text-center text-xs text-zinc-600">
-                                        High-quality image • No upload required
+                                        Download selected photo
                                     </p>
 
                                 </div>
+
                             )}
 
                         </div>
 
                     </div>
 
-                    {/* Image gallery */}
+                    {/* Gallery */}
                     {images.length > 0 && (
+
                         <div className="mt-8 border-t border-white/10 pt-6">
 
-                            <div className="mb-4 flex items-center justify-between">
+                            {/* Gallery header */}
+                            <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
                                 <div>
+
                                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
                                         Your photos
                                     </p>
@@ -409,29 +482,48 @@ export default function Home() {
                                     <p className="mt-1 text-sm text-zinc-400">
                                         Select a photo to edit
                                     </p>
+
                                 </div>
 
-                                {/* Add more */}
-                                <label
-                                    htmlFor="gallery-upload"
-                                    className="cursor-pointer rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:border-green-400/30 hover:bg-green-400/10 hover:text-green-300"
-                                >
-                                    + Add photos
+                                <div className="flex flex-wrap gap-2">
 
-                                    <input
-                                        id="gallery-upload"
-                                        type="file"
-                                        accept="image/*"
-                                        multiple
-                                        onChange={handleImageUpload}
-                                        className="hidden"
-                                    />
+                                    {/* Add photos */}
+                                    <label
+                                        htmlFor="gallery-upload"
+                                        className="cursor-pointer rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:border-green-400/30 hover:bg-green-400/10 hover:text-green-300"
+                                    >
 
-                                </label>
+                                        + Add photos
+
+                                        <input
+                                            id="gallery-upload"
+                                            type="file"
+                                            accept="image/*"
+                                            multiple
+                                            onChange={handleImageUpload}
+                                            className="hidden"
+                                        />
+
+                                    </label>
+
+                                    {/* Download all */}
+                                    <button
+                                        onClick={downloadAllImages}
+                                        disabled={isDownloadingAll}
+                                        className="rounded-lg bg-green-400 px-4 py-2 text-xs font-bold text-black transition hover:bg-green-300 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+
+                                        {isDownloadingAll
+                                            ? "Downloading..."
+                                            : "↓ Download All"}
+
+                                    </button>
+
+                                </div>
 
                             </div>
 
-                            {/* Thumbnails */}
+                            {/* Gallery thumbnails */}
                             <div className="flex gap-3 overflow-x-auto pb-2">
 
                                 {images.map((image, index) => (
@@ -461,7 +553,9 @@ export default function Home() {
 
                                             {/* Selected overlay */}
                                             {selectedImage === image && (
+
                                                 <div className="absolute inset-0 bg-green-400/10" />
+
                                             )}
 
                                         </button>
@@ -483,7 +577,25 @@ export default function Home() {
 
                             </div>
 
+                            {/* Gallery information */}
+                            <div className="mt-4 flex items-center justify-between text-xs text-zinc-600">
+
+                <span>
+                  {images.length}{" "}
+                    {images.length === 1
+                        ? "photo"
+                        : "photos"}{" "}
+                    in memory
+                </span>
+
+                                <span>
+                  Downloads are saved individually
+                </span>
+
+                            </div>
+
                         </div>
+
                     )}
 
                 </div>
@@ -498,21 +610,24 @@ export default function Home() {
             {/* Hidden canvas */}
             <canvas
                 ref={canvasRef}
-                width={1080}
-                height={1350}
                 className="hidden"
             />
 
-            {/* Full-screen image viewer */}
+            {/* Full-screen viewer */}
             {isFullScreen && selectedImage && (
+
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4 backdrop-blur-sm"
-                    onClick={() => setIsFullScreen(false)}
+                    onClick={() =>
+                        setIsFullScreen(false)
+                    }
                 >
 
-                    {/* Close button */}
+                    {/* Close */}
                     <button
-                        onClick={() => setIsFullScreen(false)}
+                        onClick={() =>
+                            setIsFullScreen(false)
+                        }
                         className="absolute right-5 top-5 z-50 flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/10 text-2xl text-white transition hover:bg-white/20"
                         aria-label="Close full-screen image"
                     >
@@ -521,10 +636,11 @@ export default function Home() {
 
                     {/* Image counter */}
                     <div className="absolute left-5 top-5 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-medium text-zinc-300">
-                        {images.indexOf(selectedImage) + 1} / {images.length}
+                        {images.indexOf(selectedImage) + 1} /{" "}
+                        {images.length}
                     </div>
 
-                    {/* Full-screen image */}
+                    {/* Image */}
                     <img
                         src={selectedImage}
                         alt="Full-screen preview"
@@ -535,6 +651,7 @@ export default function Home() {
                     />
 
                 </div>
+
             )}
 
         </main>
