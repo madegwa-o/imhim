@@ -1,9 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function Home() {
     const [image, setImage] = useState<string | null>(null);
+    const [isFullScreen, setIsFullScreen] = useState(false);
+
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     function handleImageUpload(
@@ -29,6 +31,21 @@ export default function Home() {
 
         link.click();
     }
+
+    // Close full-screen viewer with Escape
+    useEffect(() => {
+        function handleEscape(event: KeyboardEvent) {
+            if (event.key === "Escape") {
+                setIsFullScreen(false);
+            }
+        }
+
+        document.addEventListener("keydown", handleEscape);
+
+        return () => {
+            document.removeEventListener("keydown", handleEscape);
+        };
+    }, []);
 
     return (
         <main className="min-h-screen bg-[#0b0f0e] text-white">
@@ -56,7 +73,7 @@ export default function Home() {
                 </div>
             </header>
 
-            {/* Main */}
+            {/* Main content */}
             <section className="relative z-10 mx-auto flex min-h-[calc(100vh-90px)] max-w-6xl flex-col items-center px-6 py-10">
 
                 {/* Intro */}
@@ -78,6 +95,7 @@ export default function Home() {
                         Upload your photo and create your personalized
                         DevFest Nairobi 2026 profile image.
                     </p>
+
                 </div>
 
                 {/* Editor card */}
@@ -89,6 +107,8 @@ export default function Home() {
                         <div className="flex min-h-[500px] items-center justify-center rounded-2xl border border-white/10 bg-black/30 p-6">
 
                             {!image ? (
+
+                                /* Upload area */
                                 <label
                                     htmlFor="photo-upload"
                                     className="group flex w-full max-w-md cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-white/10 px-8 py-16 transition hover:border-green-400/50 hover:bg-green-400/[0.03]"
@@ -117,20 +137,38 @@ export default function Home() {
                                         onChange={handleImageUpload}
                                         className="hidden"
                                     />
+
                                 </label>
+
                             ) : (
+
+                                /* Image preview */
                                 <div className="flex w-full flex-col items-center">
 
-                                    <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl">
+                                    <div className="w-full">
 
-                                        <img
-                                            src={image}
-                                            alt="Selected photo"
-                                            className="max-h-[550px] max-w-full object-contain"
-                                        />
+                                        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl">
+
+                                            <img
+                                                src={image}
+                                                alt="Selected photo"
+                                                className="mx-auto max-h-[550px] max-w-full object-contain"
+                                            />
+
+                                        </div>
+
+                                        {/* Full screen button */}
+                                        <button
+                                            onClick={() => setIsFullScreen(true)}
+                                            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-zinc-300 transition hover:border-green-400/40 hover:bg-green-400/10 hover:text-green-300"
+                                        >
+                                            <span className="text-lg">⛶</span>
+                                            View full image
+                                        </button>
 
                                     </div>
 
+                                    {/* Change photo */}
                                     <label
                                         htmlFor="change-photo"
                                         className="mt-5 cursor-pointer text-sm font-medium text-zinc-400 transition hover:text-green-400"
@@ -147,6 +185,7 @@ export default function Home() {
                                     </label>
 
                                 </div>
+
                             )}
 
                         </div>
@@ -173,9 +212,11 @@ export default function Home() {
                                 {image && (
                                     <div className="mt-8 space-y-4">
 
+                                        {/* Zoom */}
                                         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
 
                                             <div className="flex items-center justify-between">
+
                         <span className="text-sm text-zinc-300">
                           Zoom
                         </span>
@@ -183,6 +224,7 @@ export default function Home() {
                                                 <span className="text-xs text-zinc-500">
                           100%
                         </span>
+
                                             </div>
 
                                             <input
@@ -196,6 +238,7 @@ export default function Home() {
 
                                         </div>
 
+                                        {/* Frame */}
                                         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
 
                                             <p className="text-sm text-zinc-300">
@@ -208,7 +251,7 @@ export default function Home() {
                                                     DevFest
                                                 </button>
 
-                                                <button className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-zinc-400 hover:bg-white/10">
+                                                <button className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-zinc-400 transition hover:bg-white/10">
                                                     Classic
                                                 </button>
 
@@ -259,6 +302,33 @@ export default function Home() {
                 height={1350}
                 className="hidden"
             />
+
+            {/* Full-screen image viewer */}
+            {isFullScreen && image && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4 backdrop-blur-sm"
+                    onClick={() => setIsFullScreen(false)}
+                >
+
+                    {/* Close button */}
+                    <button
+                        onClick={() => setIsFullScreen(false)}
+                        className="absolute right-5 top-5 z-50 flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/10 text-2xl text-white transition hover:bg-white/20"
+                        aria-label="Close full-screen image"
+                    >
+                        ×
+                    </button>
+
+                    {/* Full-screen image */}
+                    <img
+                        src={image}
+                        alt="Full-screen preview"
+                        className="max-h-[95vh] max-w-[95vw] object-contain"
+                        onClick={(event) => event.stopPropagation()}
+                    />
+
+                </div>
+            )}
 
         </main>
     );
